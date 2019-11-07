@@ -1,0 +1,163 @@
+---
+title: "AN597_Boots_mjsalnic"
+author: "majo"
+date: "2/11/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Challenges
+1. I am not sure about the code I used for the bootstrapping
+2. Not sure how to interpret the β coefficients in the second question
+
+```{r}
+library(curl)
+library(car)
+f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/master/AN597_Fall19/KamilarAndCooperData.csv")
+d <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(d)
+
+```
+
+
+
+```{r before data transformations}
+
+plot(data = d, HomeRange_km2 ~ Body_mass_female_mean)
+model <- lm(data = d, HomeRange_km2~ Body_mass_female_mean)
+summary(model)
+plot(model)
+qqPlot(model$residuals)
+s <- shapiro.test(model$residuals)
+s
+
+```
+
+
+## 1. Using the “KamilarAndCooperData.csv” dataset, run a linear regression looking at log(HomeRange_km2) in relation to log(Body_mass_female_mean) and report your β coeffiecients (slope and intercept).
+
+```{r data transformation}
+d$logHomeRange_km2 <- log(d$HomeRange_km2)
+d$logFemaleBodyMass <- log(d$Body_mass_female_mean)
+plot(data = d, logHomeRange_km2 ~ logFemaleBodyMass)
+```
+```{r linear model}
+m <- lm(data = d, logHomeRange_km2 ~ logFemaleBodyMass)
+summary(m)
+```
+
+
+```{r plot model}
+plot(m)
+```
+
+
+```{r }
+qqPlot(m$residuals)
+```
+
+
+```{r}
+s <- shapiro.test(m$residuals)
+s
+
+```
+
+
+```{r}
+coefficients(m)
+confint(m, level = 0.95)
+```
+
+
+```{r}
+t <- coef(summary(m))
+t <- data.frame(unlist(t))
+colnames(t) <- c("Est", "SE", "t", "p")
+t
+```
+## 2.  Then, use bootstrapping to sample from your data 1000 times with replacement, each time fitting the same model and calculating the same coefficients. This generates a sampling distribution for each β coefficient.
+
+Estimate the standard error for each of your β coefficients as the standard deviation of the sampling distribution from your bootstrap and determine the 95% CI for each of your β coefficients based on the appropriate quantiles from your sampling distribution.
+
+How does the former compare to the SE estimated from your entire dataset using the formula for standard error implemented in lm()?
+
+How does the latter compare to the 95% CI estimated from your entire dataset?
+
+```{r}
+library(boot)
+getLm<- function(dat, idx) {
+  bsfit <- lm(logHomeRange_km2~logFemaleBodyMass, subset=idx, data=d)
+  coef(bsfit)
+}
+
+bsReg<-boot(d, statistic = getLm, R=1000)
+bsReg
+
+boot.ci(bsReg, conf = 0.95)
+
+summary(bsReg)
+plot(bsReg)
+
+
+t1 <- coef(summary(bsReg))
+t1 <- data.frame(unlist(t))
+colnames(t) <- c("Est", "SE", "t", "p")
+t1
+
+
+coefficients(bsReg)
+confint(bsReg, level = 0.95)
+```
+
+
+
+```{r}
+
+bs <- function(formula, data, indices) {
+  d <- data[indices,] # allows boot to select sample
+  fit <- lm(formula, data=d)
+  return(coef(fit))
+}
+
+results <- boot(data=d, statistic=bs,
+   R=1000, formula=logHomeRange_km2~logFemaleBodyMass)  
+
+plot(results)
+
+boot.ci(results)
+
+
+
+```
+
+
+```{r}
+
+coefficients(results)
+confint(results, level = 0.95)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
